@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.quartz/
+*.log
+.DS_Store

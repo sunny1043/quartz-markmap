@@ -1,0 +1,88 @@
+{
+  "name": "@sunny1043/quartz-markmap",
+  "version": "0.1.0",
+  "description": "Render ```markmap fenced code blocks as interactive mind maps in Quartz v5 (markmap-lib + markmap-view via CDN).",
+  "type": "module",
+  "license": "MIT",
+  "author": "Sunny <sunny1043@users.noreply.github.com>",
+  "homepage": "https://github.com/sunny1043/quartz-markmap",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sunny1043/quartz-markmap"
+  },
+  "keywords": [
+    "quartz",
+    "quartz-plugin",
+    "markmap",
+    "mindmap",
+    "transformer"
+  ],
+  "files": ["dist", "README.md", "LICENSE"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@quartz-community/types": "github:quartz-community/types"
+  },
+  "peerDependenciesMeta": {
+    "@quartz-community/types": { "optional": false }
+  },
+  "dependencies": {
+    "@quartz-community/types": "github:quartz-community/types",
+    "unist-util-visit": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/hast": "^3.0.4",
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^24.10.0",
+    "@types/unist": "^3.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "preact": "^10.28.2",
+    "prettier": "^3.6.2",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vfile": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22",
+    "npm": ">=10.9.2"
+  },
+  "quartz": {
+    "name": "markmap",
+    "displayName": "Markmap",
+    "description": "Render ```markmap fenced code blocks as interactive mind maps.",
+    "category": "transformer",
+    "version": "0.1.0",
+    "quartzVersion": ">=5.0.0",
+    "requiresInstall": false,
+    "dependencies": [],
+    "defaultOrder": 35,
+    "defaultEnabled": true,
+    "defaultOptions": {
+      "pan": true,
+      "zoom": true,
+      "height": 600
+    },
+    "optionSchema": {
+      "pan": { "type": "boolean" },
+      "zoom": { "type": "boolean" },
+      "height": { "type": "number" }
+    }
+  }
+}
