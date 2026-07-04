@@ -1,14 +1,11 @@
-// Markmap transformer —— 把 ` ```markmap ` 围栏代码块替换为占位 <div>，
-// 再由浏览器侧的内联脚本 hydrate 成交互式思维导图。
+// Markmap transformer —— 在 raw Markdown 阶段用 textTransform 把 ` ```markmap `
+// 围栏代码块替换为占位 <div>，浏览器侧通过内联脚本 hydrate 成交互式思维导图。
 //
 // 设计依据：
-//   * 严格遵循 Quartz v5 transformer 形态（参考 .quartz/plugins/latex/src/transformer.ts）
-//   * 转换阶段在 hast 上完成（rehype），不动 mdast
-//   * 浏览器脚本以 contentType:"inline" 注入，由 Quartz util/resources.tsx 渲染为 <script>
-//   * markmap-lib / markmap-view 通过 ESM 动态 import 自 jsdelivr CDN，无需打包
+//   * Quartz v5 transformer 形态，textTransform 比 htmlPlugins 更可靠（不与其他 rehype 插件冲突）
+//   * 浏览器脚本以 contentType:"inline" 注入，spaPreserve:true 适配 SPA 导航
+//   * markmap-lib / markmap-view 通过 ESM 动态 import 自 jsdelivr CDN，SSR 零依赖
 import type { QuartzTransformerPlugin } from "@quartz-community/types";
-import type { Element, Root, RootContent, Text } from "hast";
-import { visit } from "unist-util-visit";
 
 // —————————————————————————————————— options
 
@@ -23,72 +20,6 @@ export interface MarkmapOptions {
   cdn?: {
     lib?: string;
     view?: string;
-  };
-}
-
-// —————————————————————————————————— helpers
-
-// 把 hast <code> 的子文本拼回原始 markdown 字符串
-function extractText(code: Element): string {
-  let out = "";
-  for (const child of code.children ?? []) {
-    if (child.type === "text") out += (child as Text).value;
-    else if (child.type === "element") out += extractText(child as Element);
-  }
-  return out;
-}
-
-// Node 构建期 Buffer 可用；浏览器侧用 atob + TextDecoder 解码
-function toBase64Utf8(s: string): string {
-  return Buffer.from(s, "utf8").toString("base64");
-}
-
-// —————————————————————————————————— rehype plugin
-
-function rehypeMarkmap(opts: { pan: boolean; zoom: boolean; height: number }) {
-  const panStr = String(opts.pan);
-  const zoomStr = String(opts.zoom);
-  const heightStr = String(opts.height);
-  return (tree: Root) => {
-    visit(tree, "element", (node, index, parent) => {
-      if (node.tagName !== "pre") return;
-      const code = (node.children ?? []).find(
-        (c): c is Element => c.type === "element" && c.tagName === "code",
-      );
-      if (!code) return;
-
-      const classes = (code.properties?.className as string[] | undefined) ?? [];
-      // remark 默认产出 `language-markmap`；obsidian-flavored-markdown 也遵循此约定
-      if (!classes.includes("language-markmap")) return;
-
-      const source = extractText(code);
-      const encoded = toBase64Utf8(source);
-
-      const placeholder: Element = {
-        type: "element",
-        tagName: "div",
-        properties: {
-          className: ["quartz-markmap"],
-          dataSource: encoded,
-          // 浏览器读 data-pan / data-zoom / data-height 控制 Markmap.create 选项
-          dataPan: panStr,
-          dataZoom: zoomStr,
-          dataHeight: heightStr,
-        },
-        children: [
-          {
-            type: "element",
-            tagName: "div",
-            properties: { className: ["quartz-markmap-loading"] },
-            children: [{ type: "text", value: "思维导图加载中…" }],
-          },
-        ],
-      };
-
-      if (parent && typeof index === "number") {
-        parent.children[index] = placeholder as unknown as RootContent;
-      }
-    });
   };
 }
 
@@ -203,8 +134,26 @@ export const Markmap: QuartzTransformerPlugin<Partial<MarkmapOptions>> = (opts) 
 
   return {
     name: "Markmap",
-    htmlPlugins() {
-      return [[rehypeMarkmap({ pan, zoom, height }) as never]];
+    // 用 textTransform 替代 htmlPlugins: 在 raw Markdown 阶段做字符串替换，
+    // 避免与 syntax-highlighting / pretty-code 等 rehype 阶段插件冲突
+    textTransform(_ctx: unknown, src: string): string {
+      const raw = typeof src === "string" ? src : src.toString("utf8");
+      const heightStr = String(height);
+
+      // 匹配 ```markmap ... ``` 围栏代码块（含可选 info string 尾随）
+      return raw.replace(
+        /```markmap\s*\n([\s\S]*?)```/g,
+        (_match: string, body: string) => {
+          const encoded = Buffer.from(body.trim(), "utf8").toString("base64");
+          return [
+            `<div class="quartz-markmap" data-source="${encoded}"`,
+            ` data-pan="${String(pan)}" data-zoom="${String(zoom)}"`,
+            ` data-height="${heightStr}">`,
+            '<div class="quartz-markmap-loading">思维导图加载中…</div>',
+            "</div>",
+          ].join("");
+        },
+      );
     },
     externalResources() {
       return {
